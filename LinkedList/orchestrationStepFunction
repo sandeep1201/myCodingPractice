@@ -1,0 +1,306 @@
+{
+   "Comment": "this orchestrates both daily and weekly client screening jobs",
+   "StartAt": "StartDailyClientScreening",
+   "States": {
+     "StartDailyClientScreening": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::states:startExecution.sync:2",
+       "Comment": "The state machine runs sactions daily delta",
+       "Parameters": {
+         "StateMachineArn": "arn:aws:states:us-east-1:157161670134:stateMachine:StartClientScreeningStateMachine-client-screening-utilities-prod",
+         "Input": {
+           "NeedCallback": "false",
+           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+           "DATASTORE": "ATHENA",
+           "CATALOG_NAME.$": "$.CATALOG_NAME",
+           "DATABASE_NAME.$": "$.DATABASE_NAME",
+           "START_DATE_PARAM_KEY": "client-screening-utilities-prod-StartDateParamKeyForSanctionDelta",
+           "WC_FILTER_START_DATE_PARAM_KEY": "client-screening-utilities-prod-DefaultKey",
+           "S3_PATH.$": "$.S3_PATH_FOR_DAILY_SANCTIONS",
+           "doScrSanction": "true",
+           "doScrPepNN": "false",
+           "batchPartitionForConcurRequest": "15",
+           "SCREEN_WC_FILTERED": "false",
+           "RUN_FREQUENCY": "DAILY_VGDELTA",
+           "FULL_HBASE_SCAN": "false",
+           "END_DATE.$": "$.END_DATE"
+         }
+       },
+       "ResultPath": "$.Input",
+       "Next": "RunIntervalCheckForSanctions"
+     },
+     "RunIntervalCheckForSanctions": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::lambda:invoke",
+       "Parameters": {
+         "FunctionName": "arn:aws:lambda:us-east-1:157161670134:function:client-screening-utilities-IntervalCheckerFunction-MMke3u3INYNF",
+         "Payload": {
+           "ssmParamKey": "client-screening-utilities-prod-LastSanctionsFullJobRunDate",
+           "ingestDate.$": "$.END_DATE",
+           "intervalInDays": "8"
+         }
+       },
+       "ResultPath": "$.interval_check",
+       "Next": "RunSanctionsCheck",
+       "Catch": [
+         {
+           "ErrorEquals": [
+             "States.ALL"
+           ],
+           "Next": "RunSanctionsFullIntervalCheckFailed",
+           "ResultPath": "$.failureDetail"
+         }
+       ]
+     },
+     "RunSanctionsFullIntervalCheckFailed": {
+      "Type": "Pass",
+      "Next": "SendSlackError",
+      "Parameters": {
+        "failureDetail": {
+          "error.$": "$.failureDetail.Error",
+          "cause.$": "$.failureDetail.Cause",
+          "step": "RunIntervalCheckForSanctions"
+        }
+      }
+    },
+     "RunSanctionsCheck": {
+       "Type": "Choice",
+       "Choices": [
+         {
+           "And": [
+             {
+               "Variable": "$.interval_check.Payload",
+               "BooleanEquals": true
+             },
+             {
+               "Variable": "$.runSanctionsFull",
+               "BooleanEquals": true
+             }
+           ],
+           "Next": "WaitAfterDailyScreening"
+         }
+       ],
+       "Default": "RunIntervalCheckForPEPAndNNFull"
+     },
+     "WaitAfterDailyScreening": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "StartWeeklyClientScreeningSanctionsFull"
+    },
+     "StartWeeklyClientScreeningSanctionsFull": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::states:startExecution.sync:2",
+       "Comment": "it runs sanction screen on all entities aginst weekly delta of world check",
+       "Parameters": {
+         "StateMachineArn": "arn:aws:states:us-east-1:157161670134:stateMachine:StartClientScreeningStateMachine-client-screening-utilities-prod",
+         "Input": {
+           "NeedCallback": "false",
+           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+           "DATASTORE": "HBASE",
+           "CATALOG_NAME.$": "$.CATALOG_NAME",
+           "DATABASE_NAME.$": "$.DATABASE_NAME",
+           "START_DATE_PARAM_KEY": "client-screening-utilities-prod-LastSanctionsFullJobRunDate",
+           "WC_FILTER_START_DATE_PARAM_KEY": "client-screening-utilities-prod-WCFilterStartDateParamKeyForSanctionFull",
+           "doScrSanction": "true",
+           "doScrPepNN": "false",
+           "batchPartitionForConcurRequest": "50",
+           "SCREEN_WC_FILTERED": "true",
+           "RUN_FREQUENCY": "WEEKLY_WCDELTA",
+           "FULL_HBASE_SCAN": "true",
+           "END_DATE.$": "$.END_DATE"
+         }
+       },
+       "ResultPath": "$.Input",
+       "Next": "RunIntervalCheckForPEPAndNNFull"
+     },
+     "RunIntervalCheckForPEPAndNNFull": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::lambda:invoke",
+       "Parameters": {
+         "FunctionName": "arn:aws:lambda:us-east-1:157161670134:function:client-screening-utilities-IntervalCheckerFunction-MMke3u3INYNF",
+         "Payload": {
+           "ssmParamKey": "client-screening-utilities-prod-LastPEPNNFullJobRunDate",
+           "ingestDate.$": "$.END_DATE",
+           "intervalInDays": "8"
+         }
+       },
+       "ResultPath": "$.interval_check",
+       "Next": "RunPEPAndNNFullCheck",
+       "Catch": [
+         {
+           "ErrorEquals": [
+             "States.ALL"
+           ],
+           "Next": "RunPEPAndNNFullIntervalCheckFailed",
+           "ResultPath": "$.failureDetail"
+         }
+       ]
+     },
+     "RunPEPAndNNFullIntervalCheckFailed": {
+      "Type": "Pass",
+      "Next": "SendSlackError",
+      "Parameters": {
+        "failureDetail": {
+          "error.$": "$.failureDetail.Error",
+          "cause.$": "$.failureDetail.Cause",
+          "step": "RunIntervalCheckForPEPAndNNFull"
+        }
+      }
+    },
+     "RunPEPAndNNFullCheck": {
+       "Type": "Choice",
+       "Choices": [
+         {
+           "And": [
+             {
+               "Variable": "$.interval_check.Payload",
+               "BooleanEquals": true
+             },
+             {
+               "Variable": "$.runPEPAndNNFull",
+               "BooleanEquals": true
+             }
+           ],
+           "Next": "WaitAfterSanctionFullScreening"
+         }
+       ],
+       "Default": "RunIntervalCheckForPEPAndNNDelta"
+     },
+     "WaitAfterSanctionFullScreening": {
+        "Type": "Wait",
+        "Seconds": 300,
+        "Next": "StartWeeklyClientScreeningPEPAndNNFull"
+      },
+     "StartWeeklyClientScreeningPEPAndNNFull": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::states:startExecution.sync:2",
+       "Comment": "PEP and NN screening  on all entities aginst weekly delta of world check",
+       "Parameters": {
+         "StateMachineArn": "arn:aws:states:us-east-1:157161670134:stateMachine:StartClientScreeningStateMachine-client-screening-utilities-prod",
+         "Input": {
+           "NeedCallback": "false",
+           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+           "DATASTORE": "HBASE",
+           "CATALOG_NAME.$": "$.CATALOG_NAME",
+           "DATABASE_NAME.$": "$.DATABASE_NAME",
+           "START_DATE_PARAM_KEY": "client-screening-utilities-prod-LastPEPNNFullJobRunDate",
+           "WC_FILTER_START_DATE_PARAM_KEY": "client-screening-utilities-prod-WCFilterStartDateParamKeyForPepAndNNFull",
+           "RUN_FREQUENCY": "WEEKLY_WCDELTA",
+           "SCREEN_WC_FILTERED": "true",
+           "FULL_HBASE_SCAN": "true",
+           "doScrSanction": "false",
+           "doScrPepNN": "true",
+           "batchPartitionForConcurRequest": "50",
+           "END_DATE.$": "$.END_DATE"
+         }
+       },
+       "ResultPath": "$.Input",
+       "Next": "RunIntervalCheckForPEPAndNNDelta"
+     },
+     "RunIntervalCheckForPEPAndNNDelta": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::lambda:invoke",
+       "Parameters": {
+         "FunctionName": "arn:aws:lambda:us-east-1:157161670134:function:client-screening-utilities-IntervalCheckerFunction-MMke3u3INYNF",
+         "Payload": {
+           "ssmParamKey": "client-screening-utilities-prod-StartDateParamKeyForPepAndNNDelta",
+           "ingestDate.$": "$.END_DATE",
+           "intervalInDays": "8"
+         }
+       },
+       "ResultPath": "$.interval_check",
+       "Next": "RunPEPAndNNDeltaCheck",
+       "Catch": [
+         {
+           "ErrorEquals": [
+             "States.ALL"
+           ],
+           "Next": "RunPEPAndNNDeltaIntervalCheckFailed",
+           "ResultPath": "$.failureDetail"
+         }
+       ]
+     },
+     "RunPEPAndNNDeltaIntervalCheckFailed": {
+      "Type": "Pass",
+      "Next": "SendSlackError",
+      "Parameters": {
+        "failureDetail": {
+          "error.$": "$.failureDetail.Error",
+          "cause.$": "$.failureDetail.Cause",
+          "step": "RunIntervalCheckForPEPAndNNDelta"
+        }
+      }
+    },
+     "RunPEPAndNNDeltaCheck": {
+       "Type": "Choice",
+       "Choices": [
+         {
+           "And": [
+             {
+               "Variable": "$.interval_check.Payload",
+               "BooleanEquals": true
+             },
+             {
+               "Variable": "$.runPEPAndNNDelta",
+               "BooleanEquals": true
+             }
+           ],
+           "Next": "WaitAfterPEPAndNNFullScreening"
+         }
+       ],
+       "Default": "Success"
+     },
+     "WaitAfterPEPAndNNFullScreening":{
+        "Type": "Wait",
+        "Seconds": 300,
+        "Next": "StartWeeklyClientScreeningPEPAndNNDelta"
+      },
+     "StartWeeklyClientScreeningPEPAndNNDelta": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::states:startExecution.sync:2",
+       "Comment": "PEP and NN screening  on entities delta aginst full world check data",
+       "Parameters": {
+         "StateMachineArn": "arn:aws:states:us-east-1:157161670134:stateMachine:StartClientScreeningStateMachine-client-screening-utilities-prod",
+         "Input": {
+           "NeedCallback": "false",
+           "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
+           "DATASTORE": "ATHENA",
+           "CATALOG_NAME.$": "$.CATALOG_NAME",
+           "DATABASE_NAME.$": "$.DATABASE_NAME",
+           "START_DATE_PARAM_KEY": "client-screening-utilities-prod-StartDateParamKeyForPepAndNNDelta",
+           "WC_FILTER_START_DATE_PARAM_KEY": "client-screening-utilities-prod-DefaultKey",
+           "S3_PATH.$": "$.S3_PATH_FOR_WEEKLY_PEPNN_DELTA",
+           "RUN_FREQUENCY": "WEEKLY_VGDELTA",
+           "SCREEN_WC_FILTERED": "false",
+           "FULL_HBASE_SCAN": "false",
+           "doScrSanction": "false",
+           "doScrPepNN": "true",
+           "batchPartitionForConcurRequest": "15",
+           "END_DATE.$": "$.END_DATE"
+         }
+       },
+       "ResultPath": "$.Input",
+       "Next": "Success"
+     },
+     "SendSlackError": {
+       "Type": "Task",
+       "Resource": "arn:aws:states:::sns:publish",
+       "Parameters": {
+         "TopicArn": "arn:aws:sns:us-east-1:157161670134:screening-alerts-topic-clscr-prod",
+         "Message": {
+           "header.$": "States.Format('{} failed.', $$.StateMachine.Name)",
+           "message.$": "States.Format('Execution ID: {}\n Failure occured in {} step with the error {}.', $$.Execution.Name, $.failureDetail.step, $.failureDetail.error)"
+         }
+       },
+       "Next": "JobFailedState"
+     },
+     "JobFailedState": {
+       "Type": "Fail",
+       "Error": "State Machine Processing Failed",
+       "Cause": "The state machine processing has failed."
+     },
+     "Success": {
+       "Type": "Succeed"
+     }
+   }
+ }

@@ -1,0 +1,128 @@
+{
+  "appserver": {
+    "hosts": {
+      "10.2.3.175": {
+        "ansible_user": "ec2-user"
+      }
+    },
+    "vars": {
+      "http_or_https": "https",
+      "backend_serverless": {
+        "report_step_function": {
+          "aws_region": "us-east-1",
+          "aws_params_path": "/opt/ansible-playbooks/platform/installations/backend_serverless/bts-ite/report_step_function.properties"
+        }
+      },
+      "tm_serverless": {
+        "tm_step_function": {
+          "aws_region": "us-east-1",
+          "aws_params_path": "/etc/inventory/tm_serverless/ite/tm_step_function.properties"
+        }
+      },
+      "screening_service": {
+        "elastic_admin_password": {
+          "__ansible_vault": "$ANSIBLE_VAULT;1.1;AES256\n38363664656337303161343565323430623863356339353332653335373337643932633462323938\n6239613962316163336138323036333061636432363132610a386538396336363630616135376132\n65363932373861636539656662643834656432663438343932303766323862636336303466636232\n3439313438386634650a626138333733396430303034383137636235353730383865326462613263\n3735"
+        },
+        "aws_region": "us-east-1",
+        "packaging_s3_bucket": "screening-sam-ite",
+        "rc_url": "https://bts-ite.riskcanvas.io",
+        "glue_job_resources_s3_path": "glue-resources",
+        "glue_resource_environment": "ITE",
+        "screening_backend_app_staging": {
+          "aws_params_path": "/etc/inventory/screening/ite/screening_backend_app_staging.properties",
+          "stack_name": "screening-service-backend-ite-staging"
+        },
+        "screening_app_staging": {
+          "aws_params_path": "/etc/inventory/screening/ite/screening_app_staging.properties",
+          "stack_name": "screening-service-ite-staging"
+        },
+        "screening_automated_tests_staging": {
+          "aws_params_path": "/etc/inventory/screening/ite/screening_automated_tests_staging.properties",
+          "stack_name": "screening-automated-tests-ite-staging"
+        },
+        "screening_alerts_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/screening_alerts_app.properties",
+          "stack_name": "screening-alerts-ite"
+        },
+        "screening_utilities_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/screening_utilities_app.properties",
+          "stack_name": "screening-utilities-ite"
+        },
+        "datasource_manager_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/datasource_manager_app.properties",
+          "stack_name": "datasource-manager-ite"
+        },
+        "screening_backend_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/screening_backend_app.properties",
+          "stack_name": "screening-service-backend-ite"
+        },
+        "screening_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/screening_app.properties",
+          "stack_name": "screening-service-ite"
+        },
+        "clscr_datasource_manager_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/clscr_datasource_manager_app.properties",
+          "stack_name": "client-screening-datasource-manager-ite"
+        },
+        "client_screening_backend_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/client_screening_backend_app.properties",
+          "stack_name": "client-screening-backend-ite"
+        },
+        "client_screening_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/client_screening_app.properties",
+          "stack_name": "client-screening-ite"
+        },
+        "client_screening_alerts_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/client_screening_alerts_app.properties",
+          "stack_name": "client-screening-alerts-ite"
+        },
+        "client_screening_utilities_app": {
+          "aws_params_path": "/etc/inventory/screening/ite/client_screening_utilities_app.properties",
+          "stack_name": "client-screening-utilities-ite"
+        }
+      }
+    }
+  },
+  "elastic_server": {
+    "hosts": {
+      "10.2.3.182": {
+        "ansible_user": "ec2-user"
+      }
+    }
+  },
+  "hbase_emr_master_nodes": {
+    "hosts": {
+      "10.2.3.57": {
+        "ansible_user": "ec2-user"
+      }
+    }
+  },
+  "jobs_emr_master_nodes": {
+    "hosts": {
+      "10.2.3.57": {
+        "ansible_user": "ec2-user"
+      }
+    }
+  },
+  "kafka_server": {
+    "hosts": {
+      "10.2.3.151": {
+        "ansible_user": "ec2-user"
+      }
+    }
+  },
+  "kdc_server": {
+    "hosts": {
+      "10.2.3.151": {
+        "ansible_user": "ec2-user"
+      }
+    }
+  },
+  "ldap_server": {
+    "hosts": {
+      "10.2.3.175": {
+        "ansible_user": "ec2-user"
+      }
+    }
+  }
+}
